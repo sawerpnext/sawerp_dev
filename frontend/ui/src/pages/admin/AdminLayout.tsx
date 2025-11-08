@@ -20,8 +20,10 @@ import {
   People as PeopleIcon,
   Security as SecurityIcon,
   Tune as TuneIcon,
+  Logout as LogoutIcon, // <-- Import a logout icon
 } from "@mui/icons-material";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext"; // <-- Import our hook
 
 const drawerWidth = 240;
 
@@ -30,13 +32,21 @@ type NavItem = { label: string; path: string; icon: React.ReactNode };
 const NAV_ITEMS: NavItem[] = [
   { label: "Overview", path: "/admin", icon: <DashboardIcon /> },
   { label: "Users", path: "/admin/users", icon: <PeopleIcon /> },
-  { label: "Roles", path: "/admin/roles", icon: <SecurityIcon /> },
+  { label: "Permissions", path: "/admin/permissions", icon: <SecurityIcon /> },
   { label: "Settings", path: "/admin/settings", icon: <TuneIcon /> },
 ];
 
 export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const navigate = useNavigate();
+  
+  // --- 1. Get user and logout from our context ---
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout(); // This clears the token
+    navigate("/login", { replace: true }); // Then navigate
+  };
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -59,7 +69,7 @@ export default function AdminLayout() {
               key={item.path}
               component={NavLink}
               to={item.path}
-              // highlight active link
+              // This logic is great
               sx={{
                 mx: 1,
                 borderRadius: 2,
@@ -80,10 +90,14 @@ export default function AdminLayout() {
         </List>
       </Box>
       <Divider />
+      {/* --- 2. Update the Logout Button --- */}
       <ListItemButton
         sx={{ m: 1, borderRadius: 2 }}
-        onClick={() => navigate("/login")}
+        onClick={handleLogout} // <-- Call our new function
       >
+        <ListItemIcon sx={{ minWidth: 40 }}>
+          <LogoutIcon />
+        </ListItemIcon>
         <ListItemText primary="Logout" />
       </ListItemButton>
     </Box>
@@ -123,8 +137,10 @@ export default function AdminLayout() {
 
           <Box sx={{ flex: 1 }} />
 
-          {/* right-side avatar placeholder */}
-          <Avatar sx={{ width: 32, height: 32 }}>A</Avatar>
+          {/* --- 3. Update the Avatar --- */}
+          <Avatar sx={{ width: 32, height: 32 }}>
+            {user ? user.username.charAt(0).toUpperCase() : "?"}
+          </Avatar>
         </Toolbar>
       </AppBar>
 

@@ -10,15 +10,9 @@ import {
   Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { setRole } from "../lib/session";
-import type { Role } from "../lib/session";
+import { useAuth } from "../contexts/AuthContext"; // Import the useAuth hook
 
-const CREDENTIALS: Record<string, { password: string; role: Role; home: string }> = {
-  admin:   { password: "admin",   role: "admin",   home: "/admin" },
-  creator: { password: "creator", role: "creator", home: "/creator" },
-  reviewer:{ password: "reviewer",role: "reviewer",home: "/reviewer" },
-  viewer:  { password: "viewer",  role: "viewer",  home: "/viewer" },
-};
+// We no longer need the hard-coded CREDENTIALS or setRole
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = React.useState("");
@@ -29,6 +23,8 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
 
   const navigate = useNavigate();
+  // Get the login function from our AuthContext
+  const { login } = useAuth();
 
   const validate = () => {
     let ok = true;
@@ -45,23 +41,42 @@ const LoginPage: React.FC = () => {
     return ok;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Make handleSubmit async to await the API call
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     if (!validate()) return;
 
     setLoading(true);
 
-    setTimeout(() => {
-      const entry = CREDENTIALS[username];
-      if (entry && entry.password === password) {
-        setRole(entry.role);
-        navigate(entry.home, { replace: true });
-      } else {
-        setFormError("Incorrect username or password.");
+    try {
+      // Call the API via the context.
+      // The login function now returns the user object.
+      const user = await login(username, password);
+
+      // Use the user's role (from the API) for navigation
+      switch (user.role) {
+        case "ADMIN":
+          navigate("/admin", { replace: true });
+          break;
+        case "CREATOR":
+          navigate("/creator", { replace: true });
+          break;
+        case "REVIEWER":
+          navigate("/reviewer", { replace: true });
+          break;
+        case "VIEWER":
+          navigate("/viewer", { replace: true });
+          break;
+        default:
+          navigate("/login", { replace: true }); // Fallback
       }
+    } catch (error) {
+      // The login function throws an error on failure
+      setFormError("Incorrect username or password.");
+    } finally {
       setLoading(false);
-    }, 250);
+    }
   };
 
   return (
@@ -96,6 +111,7 @@ const LoginPage: React.FC = () => {
             </Alert>
           )}
 
+          {/* Your form JSX is perfect and requires no changes */}
           <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: "100%" }}>
             <Stack spacing={2.5}>
               <TextField

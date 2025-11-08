@@ -1,4 +1,6 @@
 import * as React from "react";
+// Import hooks for API calls
+import { useEffect, useState, useMemo, useId } from "react";
 import {
   Box,
   Paper,
@@ -12,6 +14,8 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Alert, // For error
+  CircularProgress, // For loading
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRowParams } from "@mui/x-data-grid";
@@ -32,160 +36,81 @@ import UserForm, { type UserFormValues } from "../../../components/UserForm";
 import useSnackbar from "../../../hooks/useSnackbar";
 import SetTempPasswordDialog from "../../../components/SetTempPasswordDialog";
 
-type UserRow = {
-  id: string;
-  username: string;
+// Import our API Client and User type
+import apiClient from "../../../lib/apiClient";
+import type { User } from "../../../types/user";
+
+// This type from your file now matches our API response
+type UserRow = User & {
   name: string;
-  email: string;
-  role: Role;
   status: "Active" | "Inactive";
-  lastLogin?: string;
-  lastPasswordResetAt?: string;
-  tempPasswordLastSetAt?: string;
+  lastLogin?: string | null;
+  lastPasswordResetAt?: string | null;
+  tempPasswordLastSetAt?: string | null;
   mustChangePassword?: boolean;
 };
 
-const INITIAL_ROWS: UserRow[] = [
-  {
-    id: "u1",
-    username: "admin",
-    name: "System Admin",
-    email: "admin@example.com",
-    role: "admin",
-    status: "Active",
-    lastLogin: new Date().toISOString(),
-    lastPasswordResetAt: "",
-    tempPasswordLastSetAt: "",
-    mustChangePassword: false,
-  },
-  {
-    id: "u2",
-    username: "creator1",
-    name: "Creator One",
-    email: "creator1@example.com",
-    role: "creator",
-    status: "Active",
-    lastLogin: "",
-    lastPasswordResetAt: "",
-    tempPasswordLastSetAt: "",
-    mustChangePassword: false,
-  },
-  {
-    id: "u3",
-    username: "reviewer1",
-    name: "Reviewer One",
-    email: "reviewer1@example.com",
-    role: "reviewer",
-    status: "Inactive",
-    lastLogin: "",
-    lastPasswordResetAt: "",
-    tempPasswordLastSetAt: "",
-    mustChangePassword: true,
-  },
-];
-
+// We no longer need INITIAL_ROWS
 type Mode = "create" | "edit";
 
 export default function UsersPage() {
-  const { showSuccess, showInfo, SnackbarOutlet } = useSnackbar();
+  const { showSuccess, showInfo, showError, SnackbarOutlet } = useSnackbar();
 
-  const [rows, setRows] = React.useState<UserRow[]>(INITIAL_ROWS);
-  const [filters, setFilters] = React.useState<UsersFilters>({
+  // API Data State
+  const [rows, setRows] = useState<UserRow[]>([]); // Start empty
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filter State
+  const [filters, setFilters] = useState<UsersFilters>({
     search: "",
     role: "all",
     status: "all",
   });
 
-  // form / edit
+  // Dialog/Form State
   const [formOpen, setFormOpen] = React.useState(false);
   const [mode, setMode] = React.useState<Mode>("create");
   const [editing, setEditing] = React.useState<UserRow | null>(null);
 
-  // delete confirm
+  // Delete Confirm State
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [toDelete, setToDelete] = React.useState<UserRow | null>(null);
 
-  // More menu
+  // More Menu State
   const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [menuUser, setMenuUser] = React.useState<UserRow | null>(null);
   const menuOpen = Boolean(menuAnchor);
-  const openMenuFor = (el: HTMLElement, user: UserRow) => {
-    setMenuAnchor(el);
-    setMenuUser(user);
-  };
-  // IMPORTANT: don't clear menuUser here; keep selection for dialogs
-  const closeMenu = () => {
-    setMenuAnchor(null);
-  };
-
-  // Reset link confirm
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false);
-  const askSendReset = () => setResetConfirmOpen(true);
-  const handleConfirmSendReset = () => {
-    if (!menuUser) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === menuUser.id
-          ? { ...r, lastPasswordResetAt: new Date().toISOString() }
-          : r
-      )
-    );
-    showSuccess(`Reset link sent to ${menuUser.email}`);
-    setResetConfirmOpen(false);
-    setMenuUser(null); // clear selection after dialog completes
-  };
-
-  // Set temp password dialog
   const [tempOpen, setTempOpen] = React.useState(false);
-  const askSetTemp = () => setTempOpen(true);
-  const handleSetTempSubmit = (payload: {
-    password: string;
-    expiresInMins: number;
-    mustChange: boolean;
-  }) => {
-    if (!menuUser) return;
-    // Do NOT store password; only safe metadata.
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === menuUser.id
-          ? {
-              ...r,
-              tempPasswordLastSetAt: new Date().toISOString(),
-              mustChangePassword: payload.mustChange,
-            }
-          : r
-      )
-    );
-    showSuccess(
-      `Temporary password set for ${menuUser.email} (expires in ${Math.round(
-        payload.expiresInMins / 60
-      )}h)`
-    );
-    setTempOpen(false);
-    setMenuUser(null); // clear selection after dialog completes
-  };
 
-  // Force change toggle
-  const toggleForceChange = () => {
-    if (!menuUser) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === menuUser.id
-          ? { ...r, mustChangePassword: !r.mustChangePassword }
-          : r
-      )
-    );
-    const newVal = !menuUser.mustChangePassword;
-    showInfo(
-      `${newVal ? "Enabled" : "Disabled"} "force change at next login" for ${
-        menuUser.username
-      }`
-    );
-    // keep menuUser selected so menu label is consistent until closed
-  };
+  // --- 1. FETCH DATA ON LOAD ---
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get<UserRow[]>("/users/");
+        setRows(response.data);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to fetch users. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []); // Empty array means run once on mount
+
+  // --- Derived State ---
+  const adminCount = useMemo(
+    () => rows.filter((r) => r.role === "ADMIN").length, // Use API value
+    [rows]
+  );
 
   // Filtering
-  const filteredRows = React.useMemo(() => {
+  const filteredRows = useMemo(() => {
     const s = filters.search.trim().toLowerCase();
     return rows.filter((r) => {
       const matchesSearch =
@@ -200,6 +125,12 @@ export default function UsersPage() {
     });
   }, [rows, filters]);
 
+  // --- UI Handlers ---
+  const openMenuFor = (el: HTMLElement, user: UserRow) => {
+    setMenuAnchor(el);
+    setMenuUser(user);
+  };
+  const closeMenu = () => setMenuAnchor(null);
   const resetFilters = () =>
     setFilters({ search: "", role: "all", status: "all" });
 
@@ -213,23 +144,136 @@ export default function UsersPage() {
     setEditing(row);
     setFormOpen(true);
   };
-
-  const askDelete = (row: UserRow) => {
-    setToDelete(row);
-    setConfirmOpen(true);
-  };
-  const handleConfirmDelete = () => {
-    if (!toDelete) return;
-    setRows((prev) => prev.filter((r) => r.id !== toDelete.id));
-    showInfo(`Deleted user "${toDelete.username}" (in-memory)`);
-    setConfirmOpen(false);
-    setToDelete(null);
-  };
-
   const onRowDoubleClick = (params: GridRowParams<UserRow>) =>
     openEdit(params.row);
 
-  const columns = React.useMemo<GridColDef<UserRow>[]>(
+  // --- 2. CONNECT CREATE/UPDATE (CRUD) ---
+  const handleSubmitForm = async (values: UserFormValues) => {
+    // Helper to format data for the API
+    const splitName = (name: string) => {
+      const parts = name.trim().split(' ');
+      const first_name = parts.shift() || '';
+      const last_name = parts.join(' ');
+      return { first_name, last_name };
+    };
+
+    if (mode === "edit" && editing) {
+      const isEditingTheOnlyAdmin = editing.role === "ADMIN" && adminCount <= 1;
+      const demotingAdmin = values.role !== "ADMIN";
+      if (isEditingTheOnlyAdmin && demotingAdmin) {
+        showError("You must keep at least one admin. Change another user first.");
+        return;
+      }
+
+      const { first_name, last_name } = splitName(values.name);
+      const apiPayload = {
+        username: values.username,
+        email: values.email,
+        role: values.role,
+        is_active: values.status === "Active",
+        first_name: first_name,
+        last_name: last_name,
+      };
+
+      try {
+        const response = await apiClient.patch<UserRow>(
+          `/users/${editing.id}/`,
+          apiPayload
+        );
+        // On success, replace the old row with the new one from the server
+        setRows((prev) =>
+          prev.map((r) => (r.id === editing.id ? response.data : r))
+        );
+        showSuccess(`User "${response.data.username}" updated.`);
+        setFormOpen(false);
+      } catch (err: any) {
+        console.error(err);
+        const apiErrors = Object.values(err.response?.data || {}).join(' ');
+        showError(`Failed to update user: ${apiErrors || 'Unknown error'}`);
+      }
+      return;
+    }
+
+    if (mode === "create") {
+      if (!values.password) {
+        showError("Password is required to create a user.");
+        return;
+      }
+
+      const { first_name, last_name } = splitName(values.name);
+      const apiPayload = {
+        username: values.username,
+        email: values.email,
+        role: values.role,
+        is_active: values.status === "Active",
+        first_name: first_name,
+        last_name: last_name,
+        password: values.password,
+      };
+
+      try {
+        const response = await apiClient.post<UserRow>("/users/", apiPayload);
+        // On success, add the new user (from server) to the top
+        setRows((prev) => [response.data, ...prev]);
+        showSuccess(`User "${response.data.username}" created.`);
+        setFormOpen(false);
+      } catch (err: any) {
+        console.error(err);
+        const apiErrors = Object.values(err.response?.data || {}).join(' ');
+        showError(`Failed to create user: ${apiErrors || 'Unknown error'}`);
+      }
+    }
+  };
+
+  // --- 3. CONNECT DELETE (CRUD) ---
+  const askDelete = (row: UserRow) => {
+    if (row.role === "ADMIN" && adminCount <= 1) {
+      showError("You must keep at least one admin. This admin cannot be deleted.");
+      return;
+    }
+    setToDelete(row);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!toDelete) return;
+    try {
+      await apiClient.delete(`/users/${toDelete.id}/`);
+      // On success, remove the user from state
+      setRows((prev) => prev.filter((r) => r.id !== toDelete.id));
+      showInfo(`Deleted user "${toDelete.username}"`);
+    } catch (err) {
+      console.error(err);
+      showError("Failed to delete user.");
+    } finally {
+      setConfirmOpen(false);
+      setToDelete(null);
+    }
+  };
+
+  // --- 4. MORE ACTIONS (Still Mocked) ---
+  // These require custom backend endpoints we haven't built yet
+  const askSendReset = () => setResetConfirmOpen(true);
+  const handleConfirmSendReset = () => {
+    if (!menuUser) return;
+    showSuccess(`(DEMO) Reset link sent to ${menuUser.email}`);
+    setResetConfirmOpen(false);
+    setMenuUser(null);
+  };
+  const askSetTemp = () => setTempOpen(true);
+  const handleSetTempSubmit = (payload: {/*...*/}) => {
+    if (!menuUser) return;
+    showSuccess(`(DEMO) Temp password set for ${menuUser.email}`);
+    setTempOpen(false);
+    setMenuUser(null);
+  };
+  const toggleForceChange = () => {
+    if (!menuUser) return;
+    showInfo(`(DEMO) Toggled force change for ${menuUser.username}`);
+  };
+
+  // --- DataGrid Columns ---
+  const columns = useMemo<GridColDef<UserRow>[]>(
     () => [
       { field: "username", headerName: "Username", flex: 1, minWidth: 140 },
       { field: "name", headerName: "Name", flex: 1.2, minWidth: 160 },
@@ -290,48 +334,37 @@ export default function UsersPage() {
         headerName: "Actions",
         sortable: false,
         filterable: false,
-        width: 180,
-        renderCell: (p) => (
-          <Stack direction="row" spacing={0.5}>
-            <Tooltip title="Edit user">
-              <IconButton
-                size="small"
-                onClick={() => openEdit(p.row)}
-                aria-label={`Edit ${p.row.username}`}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Delete user">
-              <IconButton
-                size="small"
-                onClick={() => askDelete(p.row)}
-                aria-label={`Delete ${p.row.username}`}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            {/* More menu trigger */}
-            <Tooltip title="More actions">
-              <IconButton
-                size="small"
-                aria-label={`More actions for ${p.row.username}`}
-                onClick={(e) => openMenuFor(e.currentTarget, p.row)}
-              >
-                <MoreVertIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        ),
+        width: 200,
+        renderCell: (p) => {
+          const isOnlyAdmin = p.row.role === "ADMIN" && adminCount <= 1;
+          return (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Edit user">
+                <IconButton size="small" onClick={() => openEdit(p.row)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={isOnlyAdmin ? "Cannot delete the last admin" : "Delete user"}>
+                <span>
+                  <IconButton size="small" onClick={() => askDelete(p.row)} disabled={isOnlyAdmin}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="More actions">
+                <IconButton size="small" onClick={(e) => openMenuFor(e.currentTarget, p.row)}>
+                  <MoreVertIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          );
+        },
       },
     ],
-    []
+    [adminCount] // Re-run when adminCount changes
   );
 
-  // usernames for uniqueness (lowercased), excluding the one being edited
-  const existingUsernames = React.useMemo(() => {
+  const existingUsernames = useMemo(() => {
     const list = rows.map((r) => r.username.toLowerCase());
     if (mode === "edit" && editing) {
       const idx = list.indexOf(editing.username.toLowerCase());
@@ -340,46 +373,59 @@ export default function UsersPage() {
     return list;
   }, [rows, mode, editing]);
 
-  const handleSubmitForm = (values: UserFormValues) => {
-    if (mode === "create") {
-      const newRow: UserRow = {
-        id: `u-${Date.now()}`,
-        ...values,
-        lastLogin: "",
-        lastPasswordResetAt: "",
-        tempPasswordLastSetAt: "",
-        mustChangePassword: false,
-      };
-      setRows((prev) => [newRow, ...prev]);
-      showSuccess("User created (in-memory)");
-    } else if (mode === "edit" && editing) {
-      setRows((prev) =>
-        prev.map((r) => (r.id === editing.id ? { ...r, ...values } : r))
-      );
-      showSuccess("User updated (in-memory)");
-    }
-    setFormOpen(false);
-  };
+  const gridDescId = useId();
 
-  // A11y helper for the grid
-  const gridDescId = React.useId();
+  // --- 5. RENDER LOGIC (Loading, Error, Empty, Data) ---
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <Paper sx={{ height: 520, display: "grid", placeItems: "center" }}>
+          <CircularProgress />
+        </Paper>
+      );
+    }
+    if (error) {
+      return (
+        <Paper sx={{ height: 520, p: 2, display: 'grid', placeItems: 'center' }}>
+          <Alert severity="error">{error}</Alert>
+        </Paper>
+      );
+    }
+    if (filteredRows.length === 0) {
+      return (
+        <EmptyState
+          title={rows.length === 0 ? "No users yet" : "No users match your filters"}
+          description={
+            rows.length === 0
+              ? "Start by creating your first user."
+              : "Try changing your search, role, or status filters."
+          }
+          actionText={rows.length === 0 ? "Add user" : "Reset filters"}
+          onAction={rows.length === 0 ? openCreate : resetFilters}
+        />
+      );
+    }
+    return (
+      <Paper sx={{ height: 520, p: 1 }}>
+        <DataGrid
+          rows={filteredRows}
+          columns={columns}
+          disableRowSelectionOnClick
+          pageSizeOptions={[5, 10, 25]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          onRowDoubleClick={onRowDoubleClick}
+          aria-label="Users table"
+          aria-describedby={gridDescId}
+        />
+      </Paper>
+    );
+  };
 
   return (
     <Box>
-      {/* SR helper */}
-      <span
-        id={gridDescId}
-        style={{
-          position: "absolute",
-          width: 1,
-          height: 1,
-          margin: -1,
-          border: 0,
-          padding: 0,
-          clip: "rect(0 0 0 0)",
-          overflow: "hidden",
-        }}
-      >
+      <span id={gridDescId} style={{ position: "absolute", width: 1, /*...*/ }}>
         Users data table. Use arrow keys to navigate rows and columns.
       </span>
 
@@ -392,12 +438,7 @@ export default function UsersPage() {
         <Typography variant="h5" fontWeight={800} component="h1">
           Users
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={openCreate}
-          aria-label="Add new user"
-        >
+        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
           Add user
         </Button>
       </Stack>
@@ -410,45 +451,19 @@ export default function UsersPage() {
         showing={filteredRows.length}
       />
 
-      {filteredRows.length === 0 ? (
-        <EmptyState
-          title={rows.length === 0 ? "No users yet" : "No users match your filters"}
-          description={
-            rows.length === 0
-              ? "Start by creating your first user. You can always edit or remove them later."
-              : "Try changing your search, role, or status filters."
-          }
-          actionText={rows.length === 0 ? "Add user" : "Reset filters"}
-          onAction={rows.length === 0 ? openCreate : resetFilters}
-        />
-      ) : (
-        <Paper sx={{ height: 520, p: 1 }}>
-          <DataGrid
-            rows={filteredRows}
-            columns={columns}
-            disableRowSelectionOnClick
-            pageSizeOptions={[5, 10, 25]}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
-            }}
-            onRowDoubleClick={onRowDoubleClick}
-            aria-label="Users table"
-            aria-describedby={gridDescId}
-          />
-        </Paper>
-      )}
+      {renderContent()}
 
-      {/* Create/Edit form */}
+      {/* --- Dialogs --- */}
       <UserForm
         open={formOpen}
         mode={mode}
         initial={
           mode === "edit" && editing
-            ? {
+            ? { // Pass the fields your form expects
                 username: editing.username,
-                name: editing.name,
+                name: editing.name, // This 'name' field comes from the serializer
                 email: editing.email,
-                role: editing.role,
+                role: editing.role as Role, // Cast to your session Role
                 status: editing.status,
               }
             : undefined
@@ -458,7 +473,6 @@ export default function UsersPage() {
         onSubmit={handleSubmitForm}
       />
 
-      {/* Delete confirm */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => {
@@ -480,7 +494,7 @@ export default function UsersPage() {
         destructive
       />
 
-      {/* More menu */}
+      {/* More Menu */}
       <Menu
         anchorEl={menuAnchor}
         open={menuOpen}
@@ -493,61 +507,46 @@ export default function UsersPage() {
             closeMenu();
             askSendReset();
           }}
-          aria-label={
-            menuUser ? `Send reset link to ${menuUser.username}` : "Send reset link"
-          }
         >
           <ListItemIcon>
             <SendIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Send reset link…</ListItemText>
         </MenuItem>
-
         <MenuItem
           onClick={() => {
             closeMenu();
             askSetTemp();
           }}
-          aria-label={
-            menuUser
-              ? `Set temporary password for ${menuUser.username}`
-              : "Set temporary password"
-          }
         >
           <ListItemIcon>
             <LockResetIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Set temporary password…</ListItemText>
         </MenuItem>
-
         <MenuItem
           onClick={() => {
             closeMenu();
             toggleForceChange();
           }}
-          aria-label={
-            menuUser
-              ? `Toggle force change for ${menuUser.username}`
-              : "Toggle force change"
-          }
         >
           <ListItemIcon>
             <ChangeCircleIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>
             {menuUser?.mustChangePassword
-              ? "Disable force change at next login"
+              ? "Disable force change"
               : "Force change at next login"}
           </ListItemText>
         </MenuItem>
       </Menu>
 
-      {/* Confirm “Send reset link” */}
+      {/* Reset Link Confirm */}
       <ConfirmDialog
         open={resetConfirmOpen}
         onClose={() => {
           setResetConfirmOpen(false);
-          setMenuUser(null); // clear on cancel/close
+          setMenuUser(null);
         }}
         onConfirm={handleConfirmSendReset}
         title="Send password reset link?"
@@ -555,7 +554,7 @@ export default function UsersPage() {
           menuUser ? (
             <>
               We will send a password reset link to <b>{menuUser.email}</b>.
-              The user can choose a new password securely. Continue?
+              Continue?
             </>
           ) : null
         }
@@ -564,13 +563,13 @@ export default function UsersPage() {
         destructive={false}
       />
 
-      {/* Set temporary password dialog */}
+      {/* Set Temp Password Dialog */}
       <SetTempPasswordDialog
         open={tempOpen}
         email={menuUser?.email}
         onClose={() => {
           setTempOpen(false);
-          setMenuUser(null); // clear on cancel/close
+          setMenuUser(null);
         }}
         onSubmit={handleSetTempSubmit}
       />
