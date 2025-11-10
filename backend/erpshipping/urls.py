@@ -1,12 +1,18 @@
 from django.contrib import admin
-from django.urls import path, re_path
-from django.http import JsonResponse
+from django.urls import path, include
 
-def health(_request):
-    return JsonResponse({"status": "ok", "app": "ERPShipping", "version": "0.0.1"})
+# --- THIS IS THE FIX ---
+# You must import the view you are trying to use
+from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # matches /api/v1/health and /api/v1/health/
-    re_path(r"^api/v1/health/?$", health, name="health"),
+    
+    # This line is correct, as your app is 'operations'
+    path("api/", include("operations.urls")), 
+    
+    # This was the line causing the crash. 
+    # I've also changed the path to be '/api/token-auth/' 
+    # to keep all your API URLs together.
+    path("api/token-auth/", obtain_auth_token, name="api_token_auth"),
 ]

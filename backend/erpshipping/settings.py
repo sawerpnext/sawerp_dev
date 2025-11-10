@@ -11,24 +11,31 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import environ
+import os # Import os for MEDIA_ROOT
+from datetime import timedelta # Import timedelta for SIMPLE_JWT
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-z731(6x!5eg$3zb*l)r9v8ugiux&)5uo@71gvbe621s%((av5i'
+SECRET_KEY = env("SECRET_KEY", default="dev-only-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = []
+# Cleaned up ALLOWED_HOSTS.
+# A URL (http://...) is not valid here.
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 
 
-# Application definition
+# --- Application definition ---
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -37,9 +44,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # 3rd Party
+    "rest_framework",
+    "rest_framework_simplejwt",
+    'rest_framework.authtoken',
+    "corsheaders",
+
+    # --- Your App ---
+    # This is the app you created with `startapp api`
+    'operations',
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware", # Must be high up
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -69,16 +87,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'erpshipping.wsgi.application'
 
 
-# Database
+# --- Database ---
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": env.db("DATABASE_URL")
 }
+# Ensure your .env file has:
+# DATABASE_URL=postgres://your_db_user:your_db_password@localhost:5432/your_db_name
 
+
+APPEND_SLASH = True
+
+
+# --- Authentication & Authorization ---
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -98,8 +119,72 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# --- This is critical for your roles ---
+# Tells Django to use the custom User model we will create in 'api/models.py'
+AUTH_USER_MODEL = 'operations.User'
 
-# Internationalization
+
+# --- API & JWT Configuration ---
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
+}
+
+# --- This configures SIMPLE_JWT ---
+# We point to a custom serializer (api.serializers.MyTokenObtainPairSerializer)
+# to add the user's role to the login token.
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+
+    # We will create this serializer in `api/serializers.py`
+    'TOKEN_OBTAIN_SERIALIZER': 'operations.serializers.MyTokenObtainPairSerializer',
+}
+
+
+# --- Frontend CORS Configuration ---
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000",
+    "http://0.0.0.0:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+
+# --- Internationalization ---
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
@@ -111,12 +196,19 @@ USE_I18N = True
 USE_TZ = True
 
 
+# --- Static & Media Files ---
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = 'static/'
 
-# Default primary key field type
+# Media files (User-uploaded content like Loading Lists)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/#managing-files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# --- Default primary key field type ---
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
