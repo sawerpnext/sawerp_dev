@@ -13,7 +13,7 @@ db.sqlite3
 backend/.venv/
 backend/erpshipping/__pycache__/
 .venv/  # In case it's in root
-
+backend/.env
 # Environment files (secrets)
 .env
 .env.*
