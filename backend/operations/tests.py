@@ -6,6 +6,54 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 
 from .models import User
+from django.test import TestCase
+from .models import (
+    Currency, Customer,
+    AccountGroupHead, AccountGroupMaster,
+    AccountFinance, AccountMetadata
+)
+
+
+class AccountModelsTestCase(TestCase):
+    def setUp(self):
+        self.inr = Currency.objects.create(code='INR', name='Indian Rupee')
+        self.head = AccountGroupHead.objects.create(
+            code='ASSET',
+            srno=1,
+            name='Assets',
+            type='Asset'
+        )
+        self.group = AccountGroupMaster.objects.create(
+            grpcode='BANK',
+            name='Bank Accounts',
+            type='Asset',
+            headcode=self.head
+        )
+        self.customer = Customer.objects.create(
+            name='Test Customer',
+            s_mark='S-MARK-1'
+        )
+
+    def test_account_finance_and_metadata_link(self):
+        acc = AccountFinance.objects.create(
+            accode='ACC-001',
+            grpcode=self.group,
+            custcode='LEG-001',
+            customer=self.customer,
+            name='Test Account',
+            curr=self.inr
+        )
+
+        meta = AccountMetadata.objects.create(
+            account=acc,
+            address_line1='Line 1',
+            city='Mumbai',
+            pin_code='400001',
+            email='test@example.com'
+        )
+
+        self.assertEqual(acc.metadata.city, 'Mumbai')
+        self.assertEqual(meta.account.accode, 'ACC-001')
 
 
 class AuthFlowTests(APITestCase):

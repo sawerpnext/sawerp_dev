@@ -95,3 +95,26 @@ From the backend root (where `manage.py` lives):
 
    ```bash
    source .venv/bin/activate
+
+
+
+
+#################################################################
+
+
+## Phase 2 – Core Account Masters and Metadata
+
+- Added `AuditLog` model for future audit logging of all changes.
+- Added COA grouping:
+  - `AccountGroupHead` (Asset / Liability / Income / Expense / Equity).
+  - `AccountGroupMaster` (detailed groups, linked to heads).
+- Added `AccountFinance` model (multi-currency balances for each account/party).
+- Added `AccountMetadata` model (address, contact, GST, PAN etc.) with 1:1 link to `AccountFinance`.
+- Updated `ChartOfAccount` to link to `AccountGroupMaster`.
+- Exposed new APIs:
+  - `/api/account-group-heads/`
+  - `/api/account-groups/`
+  - `/api/account-finance/`
+  - `/api/account-metadata/`
+  - `/api/audit-logs/` (read-only)
+- All metadata (except primary keys and timestamps) is editable via admin and API.
