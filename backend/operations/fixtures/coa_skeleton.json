@@ -1,0 +1,236 @@
+[
+    {
+      "code": "ASSETS",
+      "name": "Assets",
+      "account_type": "Asset",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": null,
+      "is_control": false
+    },
+    {
+      "code": "ASSETS_BANKS",
+      "name": "Bank Accounts",
+      "account_type": "Asset",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "ASSETS",
+      "is_control": false
+    },
+    {
+      "code": "ASSETS_RECEIVABLES",
+      "name": "Accounts Receivable",
+      "account_type": "Asset",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "ASSETS",
+      "is_control": false
+    },
+    {
+      "code": "ASSETS_FUNDS_AGENT",
+      "name": "Funds with Agent",
+      "account_type": "Asset",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "ASSETS",
+      "is_control": false
+    },
+  
+    {
+      "code": "BANK_INR_MAIN",
+      "name": "Bank Account - INR",
+      "account_type": "Asset",
+      "group_code": "BANK_INR",
+      "currency_code": "INR",
+      "parent_code": "ASSETS_BANKS",
+      "is_control": true
+    },
+    {
+      "code": "BANK_USD_MAIN",
+      "name": "Bank Account - USD",
+      "account_type": "Asset",
+      "group_code": "BANK_USD",
+      "currency_code": "USD",
+      "parent_code": "ASSETS_BANKS",
+      "is_control": true
+    },
+    {
+      "code": "BANK_RMB_MAIN",
+      "name": "Bank Account - RMB",
+      "account_type": "Asset",
+      "group_code": "BANK_RMB",
+      "currency_code": "RMB",
+      "parent_code": "ASSETS_BANKS",
+      "is_control": true
+    },
+  
+    {
+      "code": "AR_INR",
+      "name": "Accounts Receivable - INR",
+      "account_type": "Asset",
+      "group_code": "AR",
+      "currency_code": "INR",
+      "parent_code": "ASSETS_RECEIVABLES",
+      "is_control": true
+    },
+    {
+      "code": "AR_USD",
+      "name": "Accounts Receivable - USD",
+      "account_type": "Asset",
+      "group_code": "AR",
+      "currency_code": "USD",
+      "parent_code": "ASSETS_RECEIVABLES",
+      "is_control": true
+    },
+    {
+      "code": "AR_RMB",
+      "name": "Accounts Receivable - RMB",
+      "account_type": "Asset",
+      "group_code": "AR",
+      "currency_code": "RMB",
+      "parent_code": "ASSETS_RECEIVABLES",
+      "is_control": true
+    },
+  
+    {
+      "code": "FUNDS_AGENT_INR",
+      "name": "Funds with Agent - INR",
+      "account_type": "Asset",
+      "group_code": "FUNDS_AGENT",
+      "currency_code": "INR",
+      "parent_code": "ASSETS_FUNDS_AGENT",
+      "is_control": true
+    },
+    {
+      "code": "FUNDS_AGENT_USD",
+      "name": "Funds with Agent - USD",
+      "account_type": "Asset",
+      "group_code": "FUNDS_AGENT",
+      "currency_code": "USD",
+      "parent_code": "ASSETS_FUNDS_AGENT",
+      "is_control": true
+    },
+    {
+      "code": "FUNDS_AGENT_RMB",
+      "name": "Funds with Agent - RMB",
+      "account_type": "Asset",
+      "group_code": "FUNDS_AGENT",
+      "currency_code": "RMB",
+      "parent_code": "ASSETS_FUNDS_AGENT",
+      "is_control": true
+    },
+  
+    {
+      "code": "LIABILITIES",
+      "name": "Liabilities",
+      "account_type": "Liability",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": null,
+      "is_control": false
+    },
+    {
+      "code": "LIABILITIES_PAYABLES",
+      "name": "Accounts Payable",
+      "account_type": "Liability",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "LIABILITIES",
+      "is_control": false
+    },
+  
+    {
+      "code": "AP_INR",
+      "name": "Accounts Payable - INR",
+      "account_type": "Liability",
+      "group_code": "AP",
+      "currency_code": "INR",
+      "parent_code": "LIABILITIES_PAYABLES",
+      "is_control": true
+    },
+    {
+      "code": "AP_USD",
+      "name": "Accounts Payable - USD",
+      "account_type": "Liability",
+      "group_code": "AP",
+      "currency_code": "USD",
+      "parent_code": "LIABILITIES_PAYABLES",
+      "is_control": true
+    },
+    {
+      "code": "AP_RMB",
+      "name": "Accounts Payable - RMB",
+      "account_type": "Liability",
+      "group_code": "AP",
+      "currency_code": "RMB",
+      "parent_code": "LIABILITIES_PAYABLES",
+      "is_control": true
+    },
+  
+    {
+      "code": "INCOME",
+      "name": "Income",
+      "account_type": "Income",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": null,
+      "is_control": false
+    },
+    {
+      "code": "INCOME_FREIGHT",
+      "name": "Freight Income Group",
+      "account_type": "Income",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "INCOME",
+      "is_control": false
+    },
+    {
+      "code": "FREIGHT_INCOME",
+      "name": "Freight Income",
+      "account_type": "Income",
+      "group_code": "FREIGHT_INC",
+      "currency_code": "INR",
+      "parent_code": "INCOME_FREIGHT",
+      "is_control": true
+    },
+  
+    {
+      "code": "EXPENSES",
+      "name": "Expenses",
+      "account_type": "Expense",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": null,
+      "is_control": false
+    },
+    {
+      "code": "EXPENSES_FREIGHT",
+      "name": "Freight Charges Group",
+      "account_type": "Expense",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": "EXPENSES",
+      "is_control": false
+    },
+    {
+      "code": "FREIGHT_CHARGES",
+      "name": "Freight Charges",
+      "account_type": "Expense",
+      "group_code": "FREIGHT_EXP",
+      "currency_code": "INR",
+      "parent_code": "EXPENSES_FREIGHT",
+      "is_control": true
+    },
+  
+    {
+      "code": "EQUITY",
+      "name": "Equity",
+      "account_type": "Equity",
+      "group_code": null,
+      "currency_code": null,
+      "parent_code": null,
+      "is_control": false
+    }
+  ]
+  

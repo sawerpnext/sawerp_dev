@@ -41,17 +41,30 @@ class Currency(models.Model):
 class ChartOfAccount(models.Model):
     """
     Main Chart of Accounts table.
-    - account_type: high-level type (Asset, Liability, etc.)
-    - parent: for tree structure (Assets > Bank Accounts > HDFC Bank INR)
+
+    - code: stable internal code used by posting logic (e.g. AR_INR, BANK_INR_MAIN)
+    - account_type: high-level type (Asset, Liability, Income, Expense, Equity)
+    - parent: for tree structure (Assets > Bank Accounts > Bank Account - INR)
     - currency: one currency per account (or empty for generic heads)
     - group: link to accounting group (for reporting/COA structure)
+    - is_control: marks important control accounts (AR/AP, Funds with Agent, main banks, etc.)
     """
+
     ACCOUNT_TYPES = (
         ('Asset', 'Asset'),
         ('Liability', 'Liability'),
         ('Income', 'Income'),
         ('Expense', 'Expense'),
         ('Equity', 'Equity'),
+    )
+
+    # New: stable internal code
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Stable internal code (e.g. AR_INR, AP_USD)."
     )
 
     name = models.CharField(max_length=255)
@@ -66,13 +79,13 @@ class ChartOfAccount(models.Model):
     )
 
     currency = models.ForeignKey(
-        Currency,
+        'Currency',
         null=True,
         blank=True,
         on_delete=models.PROTECT
     )
 
-    # NEW: link to detailed group master (Phase 2)
+    # Link to detailed group master (Phase 2)
     group = models.ForeignKey(
         'AccountGroupMaster',
         null=True,
@@ -81,8 +94,17 @@ class ChartOfAccount(models.Model):
         related_name='chart_accounts'
     )
 
+    # New: control account marker
+    is_control = models.BooleanField(
+        default=False,
+        help_text="Marks control accounts like AR/AP, Funds with Agent, main bank accounts."
+    )
+
     def __str__(self):
+        if self.code:
+            return f"{self.code} - {self.name}"
         return self.name
+
 
 
 # --- 3. Audit Log (from Audit_log / Log table) ---

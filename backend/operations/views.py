@@ -99,6 +99,25 @@ class ChartOfAccountViewSet(viewsets.ModelViewSet):
     serializer_class = ChartOfAccountSerializer
     permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=['get'], url_path='tree')
+    def tree(self, request):
+        """
+        Return the chart of accounts grouped by account_type.
+        For now this is a flat list per type (not a nested tree),
+        but each account includes parent and code so the frontend
+        can build a tree if needed.
+        """
+        qs = self.get_queryset().select_related('currency', 'parent', 'group')
+
+        result = {}
+        for account_type, _label in ChartOfAccount.ACCOUNT_TYPES:
+            accounts = qs.filter(account_type=account_type).order_by('name')
+            serializer = self.get_serializer(accounts, many=True)
+            result[account_type] = serializer.data
+
+        return Response(result)
+
+
 
 class AccountFinanceViewSet(viewsets.ModelViewSet):
     queryset = AccountFinance.objects.select_related('grpcode', 'customer', 'curr')

@@ -15,23 +15,37 @@ from .models import (
     AuditLog,
 )
 
+# --- Special Chart of Account codes used in posting ---
 
-def _get_special_account(name: str, account_type: str) -> ChartOfAccount:
+ACCOUNT_CODE_AR_BY_CURRENCY = {
+    "INR": "AR_INR",
+    "USD": "AR_USD",
+    "RMB": "AR_RMB",
+}
+
+ACCOUNT_CODE_AP_BY_CURRENCY = {
+    "INR": "AP_INR",
+    "USD": "AP_USD",
+    "RMB": "AP_RMB",
+}
+
+ACCOUNT_CODE_FREIGHT_INCOME = "FREIGHT_INCOME"
+ACCOUNT_CODE_FREIGHT_CHARGES = "FREIGHT_CHARGES"
+
+
+def _get_account_by_code(code: str) -> ChartOfAccount:
     """
-    Helper to fetch important accounts like:
-    - Accounts Receivable (Asset)
-    - Accounts Payable (Liability)
-    - Freight Income (Income)
-    - Freight Charges (Expense)
+    Helper to fetch a ChartOfAccount by its internal code (e.g. AR_INR, FREIGHT_INCOME).
     """
     try:
-        return ChartOfAccount.objects.get(name=name, account_type=account_type)
+        return ChartOfAccount.objects.get(code=code)
     except ChartOfAccount.DoesNotExist as exc:
         raise ValueError(
-            f"Missing ChartOfAccount: name='{name}', account_type='{account_type}'. "
-            f"Create this account first (e.g. via seed_basic_masters)."
+            f"Missing ChartOfAccount with code='{code}'. "
+            f"Run 'python manage.py seed_coa' to create it."
         ) from exc
 
+# 
 
 def _create_gl_entry(
     *,
@@ -77,23 +91,33 @@ def _assert_balanced(rows):
     if total_debits != total_credits:
         raise ValueError(f"Ledger not balanced: debits={total_debits}, credits={total_credits}")
 
-
 def post_sales_invoice(invoice: SalesInvoice):
     """
     Post a SalesInvoice to the General Ledger.
 
-    Logic (simplified):
-    - DR Accounts Receivable (Asset)
+    Logic (multi-currency):
+    - DR Accounts Receivable - <currency> (Asset)
     - CR Freight Income (Income)
-    Both with the linked project (if any).
+
+    Example:
+    - If invoice.currency = USD, use AR_USD.
+    - Base (INR) amounts go into debit_base/credit_base.
+    - Foreign (USD/RMB) amounts go into debit_foreign/credit_foreign.
     """
     base_amount = invoice.total_amount * invoice.exchange_rate
 
-    ar_account = _get_special_account("Accounts Receivable", "Asset")
-    revenue_account = _get_special_account("Freight Income", "Income")
+    currency_code = invoice.currency.code
+    try:
+        ar_code = ACCOUNT_CODE_AR_BY_CURRENCY[currency_code]
+    except KeyError:
+        raise ValueError(f"No AR account code configured for currency '{currency_code}'.")
+
+    ar_account = _get_account_by_code(ar_code)
+    revenue_account = _get_account_by_code(ACCOUNT_CODE_FREIGHT_INCOME)
 
     rows = []
 
+    # DR Accounts Receivable - <currency>
     rows.append(
         _create_gl_entry(
             account=ar_account,
@@ -106,6 +130,7 @@ def post_sales_invoice(invoice: SalesInvoice):
         )
     )
 
+    # CR Freight Income
     rows.append(
         _create_gl_entry(
             account=revenue_account,
@@ -126,17 +151,24 @@ def post_purchase_invoice(pi: PurchaseInvoice):
     """
     Post a PurchaseInvoice to the General Ledger.
 
-    Simple rule for now:
+    Logic (multi-currency):
     - DR Freight Charges (Expense)
-    - CR Accounts Payable (Liability)
+    - CR Accounts Payable - <currency> (Liability)
     """
     base_amount = pi.total_amount * pi.exchange_rate
 
-    expense_account = _get_special_account("Freight Charges", "Expense")
-    ap_account = _get_special_account("Accounts Payable", "Liability")
+    currency_code = pi.currency.code
+    try:
+        ap_code = ACCOUNT_CODE_AP_BY_CURRENCY[currency_code]
+    except KeyError:
+        raise ValueError(f"No AP account code configured for currency '{currency_code}'.")
+
+    expense_account = _get_account_by_code(ACCOUNT_CODE_FREIGHT_CHARGES)
+    ap_account = _get_account_by_code(ap_code)
 
     rows = []
 
+    # DR Freight Charges
     rows.append(
         _create_gl_entry(
             account=expense_account,
@@ -149,6 +181,7 @@ def post_purchase_invoice(pi: PurchaseInvoice):
         )
     )
 
+    # CR Accounts Payable - <currency>
     rows.append(
         _create_gl_entry(
             account=ap_account,

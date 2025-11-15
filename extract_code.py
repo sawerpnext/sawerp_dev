@@ -41,7 +41,7 @@ EXCLUDE_DIRS = {
     'node_modules',
     'venv',
     '.venv',
-    'env',
+  
     '.git',
     '__pycache__',
     'dist',
@@ -55,7 +55,7 @@ EXCLUDE_DIRS = {
 }
 # Add file prefixes or full names to skip
 EXCLUDE_FILES_PREFIX = {
-    '.env', # Excludes .env, .env.local, .env.production, etc.
+   # Excludes .env, .env.local, .env.production, etc.
 }
 EXCLUDE_FILES_SUFFIX = {
     '.log',

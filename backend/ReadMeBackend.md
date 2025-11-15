@@ -141,3 +141,31 @@ From the backend root (where `manage.py` lives):
 
 - Locked master codes in admin (Currency.code, AccountGroupHead.code,
   AccountGroupMaster.grpcode, AccountFinance.accode).
+
+
+
+
+###########PHASE 4
+
+## Phase 4 – Chart of Accounts skeleton + seeding
+
+- Added `code` (unique) and `is_control` fields on `ChartOfAccount`.
+- Created COA skeleton fixture at `operations/fixtures/coa_skeleton.json`
+  with a tree of accounts:
+  - Assets / Liabilities / Income / Expenses / Equity
+  - Per-currency AR/AP (INR, USD, RMB)
+  - Per-currency Funds with Agent (INR, USD, RMB)
+  - Main bank accounts per currency
+- Added management command:
+  - `python manage.py seed_coa [--reset]`
+  - This seeds currencies, group heads, account groups, and chart of accounts.
+- Made `seed_basic_masters` a thin wrapper around `seed_coa`.
+- Updated posting logic for SalesInvoice and PurchaseInvoice to:
+  - use per-currency AR/AP control accounts (AR_INR, AR_USD, AR_RMB, etc.),
+  - use stable account codes instead of name+type.
+- Added `/api/accounts/tree/` endpoint for frontend dropdowns.
+- Added a basic test in `operations/tests/test_seed_coa.py` to ensure key
+  accounts exist after seeding.
+
+
+

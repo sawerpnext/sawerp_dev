@@ -103,7 +103,17 @@ class AccountGroupMasterSerializer(serializers.ModelSerializer):
 class ChartOfAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChartOfAccount
-        fields = ['id', 'name', 'account_type', 'parent', 'currency', 'group']
+        fields = [
+            'id',
+            'code',
+            'name',
+            'account_type',
+            'parent',
+            'currency',
+            'group',
+            'is_control',
+        ]
+
 
 
 class AccountMetadataSerializer(serializers.ModelSerializer):
