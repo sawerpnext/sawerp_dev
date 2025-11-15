@@ -11,6 +11,7 @@ db.sqlite3
 
 # Virtualenv (specific to your backend folder) ff
 backend/.venv/
+backend/erpshipping/__pycache__/
 .venv/  # In case it's in root
 
 # Environment files (secrets)
