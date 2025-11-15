@@ -1,13 +1,39 @@
-# Python
-backend/.venv/
+# Django/Python ignores
+*.pyc
+*.pyo
 __pycache__/
+*.db  # Local databases like SQLite
+media/  # Uploaded files
+migrations/  # Auto-generated migrations (optional, remove if you want to track)
+db.sqlite3
+*.pot
+*.log
 
-# Django
-*.sqlite3
+# Virtualenv (specific to your backend folder)
+backend/.venv/
+.venv/  # In case it's in root
 
-# Node
-frontend/ui/node_modules/
-frontend/ui/dist/
-
-# Env
+# Environment files (secrets)
+.env
+.env.*
 *.env
+
+# Node.js/Vite/React ignores
+node_modules/
+.vite/
+dist/
+build/
+*.local
+
+# Editor and OS junk
+.DS_Store  # Mac
+Thumbs.db  # Windows
+*.swp  # Temp files
+.idea/  # IntelliJ
+.vscode/  # VS Code
+*.sublime-*  # Sublime
+
+# Other common
+*.bak
+*.tmp
+temp/
