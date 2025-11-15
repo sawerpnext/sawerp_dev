@@ -9,7 +9,7 @@ db.sqlite3
 *.pot
 *.log
 
-# Virtualenv (specific to your backend folder)
+# Virtualenv (specific to your backend folder) ff
 backend/.venv/
 .venv/  # In case it's in root
 
