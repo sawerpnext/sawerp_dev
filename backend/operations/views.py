@@ -1,7 +1,9 @@
-from rest_framework import viewsets, mixins
+from rest_framework import viewsets, mixins, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
+
 
 from .models import (
     User, Currency, ChartOfAccount, Customer, Agent, Project,
@@ -18,14 +20,34 @@ from .serializers import (
     AccountMetadataSerializer, AccountGroupHeadSerializer, AccountGroupMasterSerializer
 )
 
-
+from .posting import submit_document
 # --- Base ViewSet for Documents (sets created_by) ---
 
 class BaseDocumentViewSet(viewsets.ModelViewSet):
+    """
+    Common behaviour for all document ViewSets that inherit from BaseDocument:
+    - Auto-fill created_by on create
+    - Provide /submit/ action to post into the General Ledger
+    """
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        """
+        Submit this document:
+
+        - Moves status from Draft -> Submitted
+        - Creates GeneralLedger rows using the posting service
+        - Returns the updated document
+        """
+        document = self.get_object()
+        submit_document(document, request.user)
+        serializer = self.get_serializer(document)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 # --- Core Master Data ViewSets ---

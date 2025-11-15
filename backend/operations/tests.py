@@ -108,3 +108,109 @@ class AuthFlowTests(APITestCase):
         # 3) Check response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data.get("username"), self.username)
+from decimal import Decimal
+from datetime import date
+
+from django.contrib.contenttypes.models import ContentType
+from django.test import TestCase
+
+from .models import (
+    User,
+    Currency,
+    Customer,
+    Project,
+    ChartOfAccount,
+    SalesInvoice,
+    GeneralLedger,
+)
+from .posting import submit_document
+
+
+class PostingPipelineTests(TestCase):
+    """
+    Basic end-to-end test for:
+    SalesInvoice -> submit_document -> GeneralLedger -> Project.net_profit
+    """
+
+    def setUp(self):
+        # Base user
+        self.user = User.objects.create_user(
+            username="tester",
+            password="test-password",
+        )
+
+        # Base currency
+        self.inr = Currency.objects.create(code="INR", name="Indian Rupee")
+
+        # Chart of Accounts needed by the posting rules
+        self.ar_account = ChartOfAccount.objects.create(
+            name="Accounts Receivable",
+            account_type="Asset",
+            parent=None,
+            currency=self.inr,
+        )
+        self.revenue_account = ChartOfAccount.objects.create(
+            name="Freight Income",
+            account_type="Income",
+            parent=None,
+            currency=self.inr,
+        )
+
+        # Simple customer + project
+        self.customer = Customer.objects.create(
+            name="Test Customer",
+            s_mark="TEST-SMARK",
+        )
+        self.project = Project.objects.create(
+            container_number="CONT-001",
+            customer=self.customer,
+        )
+
+    def test_sales_invoice_submission_posts_to_ledger_and_updates_project_profit(self):
+        invoice = SalesInvoice.objects.create(
+            project=self.project,
+            customer=self.customer,
+            invoice_date=date(2025, 1, 1),
+            due_date=date(2025, 1, 15),
+            currency=self.inr,
+            exchange_rate=Decimal("1.00"),
+            total_amount=Decimal("1000.00"),
+            created_by=self.user,
+        )
+
+        # Submit the invoice using the shared helper
+        submit_document(invoice, self.user)
+
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "Submitted")
+
+        # Fetch GL rows for this invoice
+        ct = ContentType.objects.get_for_model(SalesInvoice)
+        gl_rows = GeneralLedger.objects.filter(
+            content_type=ct,
+            object_id=invoice.pk,
+        ).order_by("id")
+
+        self.assertEqual(gl_rows.count(), 2)
+
+        ar_row = gl_rows[0]
+        revenue_row = gl_rows[1]
+
+        # Debit row: Accounts Receivable
+        self.assertEqual(ar_row.account, self.ar_account)
+        self.assertEqual(ar_row.debit_base, Decimal("1000.00"))
+        self.assertEqual(ar_row.credit_base, Decimal("0"))
+        self.assertEqual(ar_row.debit_foreign, Decimal("1000.00"))
+        self.assertEqual(ar_row.credit_foreign, Decimal("0"))
+        self.assertEqual(ar_row.project, self.project)
+
+        # Credit row: Freight Income
+        self.assertEqual(revenue_row.account, self.revenue_account)
+        self.assertEqual(revenue_row.credit_base, Decimal("1000.00"))
+        self.assertEqual(revenue_row.debit_base, Decimal("0"))
+        self.assertEqual(revenue_row.credit_foreign, Decimal("1000.00"))
+        self.assertEqual(revenue_row.debit_foreign, Decimal("0"))
+        self.assertEqual(revenue_row.project, self.project)
+
+        # Project.net_profit should now equal the revenue (Income credit)
+        self.assertEqual(self.project.net_profit, Decimal("1000.00"))

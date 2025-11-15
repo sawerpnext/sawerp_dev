@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 from .models import (
     User, Currency, ChartOfAccount, Customer, Agent, Project,
     LoadingList, LoadingListItem, SalesInvoice, PurchaseInvoice,
@@ -273,3 +275,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
             'entity_type', 'entity_id', 'changes', 'timestamp', 'details'
         ]
         read_only_fields = fields  # fully read-only
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Custom JWT serializer placeholder.
+
+    Right now it behaves exactly like the default TokenObtainPairSerializer.
+    You can extend it later if you want more data in the response.
+    """
+    pass

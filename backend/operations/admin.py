@@ -30,6 +30,16 @@ class CurrencyAdmin(admin.ModelAdmin):
     list_display = ('code', 'name')
     search_fields = ('code', 'name')
 
+    def get_readonly_fields(self, request, obj=None):
+        """
+        When editing an existing currency, lock the 'code' field.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj:  # editing existing row
+            readonly.append('code')
+        return readonly
+
+
 
 @admin.register(AccountGroupHead)
 class AccountGroupHeadAdmin(admin.ModelAdmin):
@@ -37,12 +47,31 @@ class AccountGroupHeadAdmin(admin.ModelAdmin):
     search_fields = ('code', 'name')
     list_filter = ('type',)
 
+    def get_readonly_fields(self, request, obj=None):
+        """
+        Lock 'code' once the head is created.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj:
+            readonly.append('code')
+        return readonly
+
+
 
 @admin.register(AccountGroupMaster)
 class AccountGroupMasterAdmin(admin.ModelAdmin):
     list_display = ('grpcode', 'name', 'type', 'subtype', 'headcode')
     search_fields = ('grpcode', 'name')
     list_filter = ('type', 'headcode')
+
+    def get_readonly_fields(self, request, obj=None):
+        """
+        Lock 'grpcode' once the group is created.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj:
+            readonly.append('grpcode')
+        return readonly
 
 
 @admin.register(ChartOfAccount)
@@ -77,8 +106,6 @@ class AccountMetadataInline(admin.StackedInline):
     extra = 0
     can_delete = True
 
-
-@admin.register(AccountFinance)
 class AccountFinanceAdmin(admin.ModelAdmin):
     list_display = (
         'accode', 'name', 'grpcode', 'curr',
@@ -88,15 +115,26 @@ class AccountFinanceAdmin(admin.ModelAdmin):
     search_fields = ('accode', 'name', 'custcode', 'customer__name')
     inlines = [AccountMetadataInline]
 
+    def get_readonly_fields(self, request, obj=None):
+        """
+        Lock 'accode' once the record exists.
+        """
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj:
+            readonly.append('accode')
+        return readonly
+
+
 
 # --- 4. Core Project Admin ---
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('container_number', 'customer', 'is_active', 'created_at')
+    list_display = ('container_number', 'customer', 'is_active', 'created_at', 'net_profit')
     list_filter = ('is_active', 'customer')
     search_fields = ('container_number', 'customer__name')
-    readonly_fields = ('created_at',)
+    readonly_fields = ('created_at', 'net_profit')
+
 
 
 # --- 5. Loading List Admin ---

@@ -118,3 +118,26 @@ From the backend root (where `manage.py` lives):
   - `/api/account-metadata/`
   - `/api/audit-logs/` (read-only)
 - All metadata (except primary keys and timestamps) is editable via admin and API.
+
+
+## Phase 3 – Financial documents + ledger posting
+
+- Added `operations/posting.py` as a central posting service.
+- Implemented `submit_document()` which:
+  - Checks status is Draft.
+  - Writes balanced GeneralLedger rows.
+  - Moves status to Submitted.
+  - Logs a row in AuditLog.
+
+- Exposed submit endpoints:
+  - POST /api/sales-invoices/{id}/submit/
+  - POST /api/purchase-invoices/{id}/submit/
+  - POST /api/payment-entries/{id}/submit/
+  - POST /api/journal-entries/{id}/submit/
+
+- Added seed command:
+  - `python manage.py seed_basic_masters`
+  - Creates currencies + key ChartOfAccount rows (AR, AP, bank accounts, Freight Income, Freight Charges).
+
+- Locked master codes in admin (Currency.code, AccountGroupHead.code,
+  AccountGroupMaster.grpcode, AccountFinance.accode).
